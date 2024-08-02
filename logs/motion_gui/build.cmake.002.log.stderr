@@ -1,0 +1,4 @@
+[31m[1mCMake Error[0m at /home/airlab5/ben_ws/src/motion_gui/CMakeLists.txt:206:
+  Parse error.  Function missing ending ")".  End of file reached.
+
+

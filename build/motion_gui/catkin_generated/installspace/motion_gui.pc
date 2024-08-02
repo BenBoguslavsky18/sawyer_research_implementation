@@ -1,0 +1,8 @@
+prefix=/home/airlab5/ben_ws/install
+
+Name: motion_gui
+Description: Description of motion_gui
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

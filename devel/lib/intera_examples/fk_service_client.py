@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/fk_service_client.py

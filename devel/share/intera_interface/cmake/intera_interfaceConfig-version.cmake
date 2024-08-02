@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_interface/share/intera_interface/cmake/intera_interfaceConfig-version.cmake

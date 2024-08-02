@@ -1,0 +1,8 @@
+prefix=/home/airlab5/ben_ws/devel/.private/intera_core_msgs
+
+Name: intera_core_msgs
+Description: Description of intera_core_msgs
+Version: 5.3.0
+Cflags: -I/home/airlab5/ben_ws/devel/.private/intera_core_msgs/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime std_msgs geometry_msgs sensor_msgs actionlib_msgs

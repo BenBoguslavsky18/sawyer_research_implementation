@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_core_msgs/share/roseus/ros/intera_core_msgs/msg/CameraSettings.l

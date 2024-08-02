@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_examples/lib/python3/dist-packages/intera_examples/cfg/SawyerJointSpringsExampleConfig.py

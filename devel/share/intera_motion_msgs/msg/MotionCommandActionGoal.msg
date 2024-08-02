@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_motion_msgs/share/intera_motion_msgs/msg/MotionCommandActionGoal.msg

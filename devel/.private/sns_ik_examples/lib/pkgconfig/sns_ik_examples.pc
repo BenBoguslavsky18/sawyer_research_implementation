@@ -1,0 +1,8 @@
+prefix=/home/airlab5/ben_ws/devel/.private/sns_ik_examples
+
+Name: sns_ik_examples
+Description: Description of sns_ik_examples
+Version: 0.2.3
+Cflags: -I/usr/include/eigen3
+Libs: -L${prefix}/lib 
+Requires: roscpp

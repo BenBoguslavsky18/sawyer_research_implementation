@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/intera_core_msgs/share/intera_core_msgs/cmake/intera_core_msgsConfig-version.cmake
