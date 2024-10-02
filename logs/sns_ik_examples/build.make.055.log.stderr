@@ -1,0 +1,1 @@
+/usr/bin/ld: warning: liborocos-kdl.so.1.4, needed by /opt/ros/noetic/lib/libkdl_parser.so, may conflict with liborocos-kdl.so.1.5

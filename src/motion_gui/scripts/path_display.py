@@ -4,7 +4,7 @@ from random import randint
 import numpy as np
 from scipy.interpolate import splprep, splev
 import rospy
-
+from geometry_msgs.msg import Pose2D
 
 #---Initializing Window---
 pygame.init()
@@ -25,7 +25,7 @@ x_screen_limit_right = 1720
 y_screen_limit_top = 200
 y_screen_limit_bottom = 1000
 
-#X-coords of points: Starting at 210, in intervals of 187.5 pixels
+#X-coords of points: Starting at 210, in intervals of 190 pixels
 x_coordinate_interval = 190
 
 #list of 8 points (tuples) used to create curve path
@@ -54,11 +54,41 @@ x_fine, y_fine = splev(u_fine, tck) #new set of curve points
 
 # Draw the smooth line
 smooth_points = list(zip(x_fine, y_fine)) #packaging new curve points back into tuples
-pygame.draw.lines(window, (255, 0, 0), False, smooth_points, 4)  # False means the line is not closed, 2 is the width
+path_coordinates_cm = [(x/10, y/10) for x, y in smooth_points] #list of coords in CM for real robot to follow
+
+#setting and printing real coordinate values in cm
+for point_cm in path_coordinates_cm:
+    print(f"X_CM: {point_cm[0]}, Y_CM: {point_cm[1]}")
+
+pygame.draw.lines(window, (255, 0, 0), False, smooth_points, 4)  # False means the line is not closed, 4 is the width
+
+######
+# PUB SUB SYSTEM. THIS ONE SHOULD PUBLISH THE COORDS BUT ALSO SUBSCRIBE TO THE ROBOT POSITION BASED ON THE COORDINATES FOR REAL TIME VIEW FOR THE USRE
+######
+def coordinatePublisher():
+    rospy.init_node('coordinatePublisher')
+    coordinate_publisher = rospy.Publisher('coordinates', Pose2D, queue_size=10)
+    rate = rospy.Rate(10) #1 Hz
+
+    for coord in path_coordinates_cm:
+        pose = Pose2D()
+        pose.x = coord[0]
+        pose.y = coord[1]
+        pose.theta = 0.0
+
+        rospy.loginfo(f"Publishing: ROBOT_X: {pose.x}, ROBOT_Y: {pose.y}")
+        coordinate_publisher.publish(pose)
+        rate.sleep()
 
 
+try:
+    pygame.display.update()
+    coordinatePublisher()
+except rospy.ROSInterruptException:
+    print("Error running the publisher")
+    pass
 
-#---main loop---
+#---main loop--- TODO NEEDS TO BE UPDATED FOR REAL TIME GRAPHICS EVENTUALLY
 while True:
 
     #preprocessing of inputs

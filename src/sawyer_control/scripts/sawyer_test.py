@@ -24,18 +24,17 @@ angles = limb.joint_angles()
 # rospy.sleep(3)
 
 
-# #---MOVING TO NEUTRAL POSE---
-# # Move to neutral pose
-# print('\n---MOVING TO NEUTRAL POSITION---')
-# limb.move_to_neutral()
+#---MOVING TO NEUTRAL POSE---
+print('\n---MOVING TO NEUTRAL POSITION---')
+limb.move_to_neutral()
 
-# # Get the right limb's current joint angles now that it is in neutral
-# angles = limb.joint_angles()
+# Get the right limb's current joint angles now that it is in neutral
+angles = limb.joint_angles()
 
-# # Print the current joint angles again
-# print('---Current Angles---')
-# print(angles)
-# rospy.sleep(3)
+# Print the current joint angles again
+print('---Current Angles---')
+print(angles)
+rospy.sleep(3)
 
 
 #---MOVING TO CUSTOM POSE---
@@ -55,7 +54,7 @@ limb.move_to_joint_positions(angles)
 # Print the joint angle command
 print('---Current Angles---')
 print(angles)
-rospy.sleep(3)
+rospy.sleep(1)
 
 
 #---WAVING---
