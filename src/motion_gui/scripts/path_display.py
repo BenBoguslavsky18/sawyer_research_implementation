@@ -6,71 +6,80 @@ from scipy.interpolate import splprep, splev
 import rospy
 from geometry_msgs.msg import Pose2D
 
-#---Initializing Window---
+#-------------------
+#Initializing Window
+#-------------------
 pygame.init()
 window = pygame.display.set_mode((1920,1420)) #setting window size
 background_color = (2, 114, 212)
 window.fill(background_color)
-pygame.display.set_caption("Ben\'s Window")
+pygame.display.set_caption("Sawyer's Path")
 
+# TUPLE LIST FOR STORING X AND Y COORDINATES TO SEND TO SAWYER
+path_coordinates = []
 
-#---Drawing black rectangle and general font settings---
-pygame.draw.rect(window, (0,0,0), (0, 0, 1920, 100)) #adding black rectangle
-font = pygame.font.Font(None, 30) #font settings
-
-
-#---Creating points and line connection---
+#-------------------
+#Creating points limits for gui
+#-------------------
 x_screen_limit_left = 200
 x_screen_limit_right = 1720
 y_screen_limit_top = 200
 y_screen_limit_bottom = 1000
 
-#X-coords of points: Starting at 210, in intervals of 190 pixels
+#X-coords of points: Starting at 200, in intervals of 380 pixels
 x_coordinate_interval = 190
+x_coordinate_interval = 380
 
-#list of 8 points (tuples) used to create curve path
-points = [(200 + i * x_coordinate_interval, randint(y_screen_limit_top, y_screen_limit_bottom)) for i in range(9)] 
+#---Drawing black rectangle and general font settings---
+# pygame.draw.rect(window, (0,0,0), (0, 0, 1920, 100)) #adding black rectangle
+# font = pygame.font.Font(None, 30) #font settings
 
-#drawing coordinates and points
-for index, point in enumerate(points):
-    #listing coordinate values in black rectangle
-    point_text = font.render("(" + str(points[index][0]) + ", " + str(points[index][1]) + ")", True, (255, 255, 255)) #text with smoothing
-    point_rect = point_text.get_rect(center=(400 + index*125, 50)) 
-    window.blit(point_text, point_rect) #blit is 'block transfer' -- puts point_text to point_rect
+def create_spline():
+    #list of 5 points (tuples) used to create curve path
+    points = [(200 + i * x_coordinate_interval, randint(y_screen_limit_top, y_screen_limit_bottom) if 0 < i < 4 else 600) for i in range(5)] #setting first and last point to middle height
 
-    #drawing coordinate points
-    pygame.draw.circle(window, (255, 255, 255), [points[index][0], points[index][1]], 10, 0) #0 line width makes a filled in circle
+    #drawing coordinates and points
+    for index, point in enumerate(points):
+        #listing coordinate values in black rectangle
+        # point_text = font.render("(" + str(points[index][0]) + ", " + str(points[index][1]) + ")", True, (255, 255, 255)) #text with smoothing
+        # point_rect = point_text.get_rect(center=(400 + index*125, 50)) 
+        # window.blit(point_text, point_rect) #blit is 'block transfer' -- puts point_text to point_rect
 
-#connecting dots with linear lines
-pygame.draw.lines(window, (255, 255, 255), False, points, 2) # False means the line is not closed, 2 is the width
+        #drawing coordinate points
+        pygame.draw.circle(window, (255, 255, 255), [points[index][0], points[index][1]], 10, 0) #0 line width makes a filled in circle
 
+        #connecting dots with linear lines
+        pygame.draw.lines(window, (255, 255, 255), False, points, 2) # False means the line is not closed, 2 is the width
 
+        #-------------------
+        #Spline interpolation to smooth the line
+        #-------------------
+        x_coords, y_coords = zip(*points) #separates x and y values of points into separate objects
+        tck, u = splprep([x_coords, y_coords], s=2) #tck is 'tuple of spline representation', nessecary data to define the curve. 'u' is just parameters used in interpolation
+        u_fine = np.linspace(0, 1, 1000) #'u_fine' is parameters for the new points of the smooth curves. 'np.linespace' generates 1000 evenly spaced values between 0 and 1
+        x_fine, y_fine = splev(u_fine, tck) #new set of curve points
 
-#---Spline interpolation to smooth the line---
-x_coords, y_coords = zip(*points) #separates x and y values of points into separate objects
-tck, u = splprep([x_coords, y_coords], s=2) #tck is 'tuple of spline representation', nessecary data to define the curve. 'u' is just parameters used in interpolation
-u_fine = np.linspace(0, 1, 1000) #'u_fine' is parameters for the new points of the smooth curves. 'np.linespace' generates 1000 evenly spaced values between 0 and 1
-x_fine, y_fine = splev(u_fine, tck) #new set of curve points
-
-# Draw the smooth line
-smooth_points = list(zip(x_fine, y_fine)) #packaging new curve points back into tuples
-path_coordinates_cm = [(x/10, y/10) for x, y in smooth_points] #list of coords in CM for real robot to follow
+        # Draw the smooth line
+        smooth_points = list(zip(x_fine, y_fine)) #packaging new curve points back into tuples
+        
+        global path_coordinates
+        path_coordinates = [(x/2000 - 0.1, -y/1500 + 0.4) for x, y in smooth_points] #list of coords in meters, 1:2 scale. Zeroed by offset 0.1 for X and 0.3 for Y and sent to sawyer
 
 #setting and printing real coordinate values in cm
-for point_cm in path_coordinates_cm:
-    print(f"X_CM: {point_cm[0]}, Y_CM: {point_cm[1]}")
+# for point_m in path_coordinates_m:
+#     print(f"X_CM: {point_m[0]}, Y_CM: {point_m[1]}")
+        pygame.draw.lines(window, (255, 0, 0), False, smooth_points, 4)  # False means the line is not closed, 4 is the width
 
-pygame.draw.lines(window, (255, 0, 0), False, smooth_points, 4)  # False means the line is not closed, 4 is the width
 
-######
+#-------------------
 # PUB SUB SYSTEM. THIS ONE SHOULD PUBLISH THE COORDS BUT ALSO SUBSCRIBE TO THE ROBOT POSITION BASED ON THE COORDINATES FOR REAL TIME VIEW FOR THE USRE
-######
+#-------------------
 def coordinatePublisher():
     rospy.init_node('coordinatePublisher')
     coordinate_publisher = rospy.Publisher('coordinates', Pose2D, queue_size=10)
-    rate = rospy.Rate(10) #1 Hz
+    rate = rospy.Rate(1000) #1000 Hz
 
-    for coord in path_coordinates_cm:
+    for coord in path_coordinates:
         pose = Pose2D()
         pose.x = coord[0]
         pose.y = coord[1]
@@ -82,8 +91,10 @@ def coordinatePublisher():
 
 
 try:
+    create_spline()
     pygame.display.update()
     coordinatePublisher()
+    pygame.display.update()
 except rospy.ROSInterruptException:
     print("Error running the publisher")
     pass

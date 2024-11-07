@@ -56,6 +56,11 @@ print('---Current Angles---')
 print(angles)
 rospy.sleep(1)
 
+end_effector_pose = limb.endpoint_pose()  # Get the end effector's pose
+print('\n---End Effector Position---')
+print('Position:', end_effector_pose['position'])  # Print position (x, y, z)
+print('Orientation:', end_effector_pose['orientation'])  # Print orientation (quaternion)
+
 
 #---WAVING---
 # Sawyer wants to say hello, let's wave the arm

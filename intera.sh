@@ -19,13 +19,13 @@ unset your_hostname
 # will be overwritten by any variables set here.
 
 # Specify Robot's hostname
-#robot_hostname="192.168.1.100" #UNCOMMENT FOR ROBOT LAB USE
-robot_hostname="192.168.0.100" #UNCOMMENT FOR SIMULATOR USE
+robot_hostname="192.168.1.200" #UNCOMMENT FOR ROBOT LAB USE
+#robot_hostname="192.168.0.100" #UNCOMMENT FOR SIMULATOR USE
 
 # Set *Either* your computers ip address or hostname. Please note if using
 # your_hostname that this must be resolvable to the Robot.
-#your_ip="192.168.1.119" #UNCOMMENT FOR ROBOT LAB USE
-your_ip=$(/sbin/ifconfig | grep -A 1 'wlp0s20f3' | grep 'inet' | awk '{print $2}') #UNCOMMENT FOR SIMULATOR USE
+your_ip="192.168.1.119" #UNCOMMENT FOR ROBOT LAB USE
+#your_ip=$(/sbin/ifconfig | grep -A 1 'wlp0s20f3' | grep 'inet' | awk '{print $2}') #UNCOMMENT FOR SIMULATOR USE
 #your_hostname="my_computer.local"
 
 # Specify ROS distribution (e.g. kinetic, indigo, hydro, etc.)
