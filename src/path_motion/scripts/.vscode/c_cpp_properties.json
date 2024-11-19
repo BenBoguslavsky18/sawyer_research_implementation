@@ -1,0 +1,32 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/airlab5/ben_ws/devel/include/**",
+        "/home/airlab5/ros_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/airlab5/ros_ws/src/balance_experiment/include/**",
+        "/home/airlab5/ros_ws/src/dynamixel_sdk/include/**",
+        "/home/airlab5/ben_ws/src/motion_gui/include/**",
+        "/home/airlab5/ben_ws/src/path_motion/include/**",
+        "/home/airlab5/ben_ws/src/sawyer_control/include/**",
+        "/home/airlab5/ben_ws/src/sawyer_simulator/sawyer_gazebo/include/**",
+        "/home/airlab5/ben_ws/src/sawyer_simulator/sawyer_hardware_interface/include/**",
+        "/home/airlab5/ben_ws/src/sawyer_simulator/sawyer_sim_controllers/include/**",
+        "/home/airlab5/ben_ws/src/sns_ik/sns_ik_lib/include/**",
+        "/home/airlab5/ros_ws/src/thermocouple_driver/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

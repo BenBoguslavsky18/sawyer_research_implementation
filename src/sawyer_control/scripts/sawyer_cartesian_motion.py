@@ -5,24 +5,26 @@ For motion of sawyer
 """
 
 import rospy
+from geometry_msgs.msg import Pose2D
 from std_msgs.msg import Empty
 import intera_interface
 from intera_interface import CHECK_VERSION
-
-from geometry_msgs.msg import Pose
 
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
 from kdl_parser_py.urdf import treeFromUrdfModel
 
 from intera_motion_interface import MotionTrajectory, MotionWaypoint, MotionWaypointOptions
- 
+import os 
+import sys
 
 # ---------------------
 # Important global vars
 # ---------------------
 starting_x = -0.3
 starting_y = -0.7
+
+teleop = None #responsible for movement
 
 
 class Teleop(object):
@@ -154,7 +156,7 @@ class Teleop(object):
         # y = -0.7
         x = x_coordinate
         y = y_coordinate
-        z = 0.2 # KEEP CONSTANT
+        z = 0.3 # KEEP CONSTANT
         orientation = kdl.Rotation.Quaternion(cur_ee_pose["orientation"].x, cur_ee_pose["orientation"].y, cur_ee_pose["orientation"].z, cur_ee_pose["orientation"].w)
  
         # loop at specified rate commanding new joint torques
@@ -193,8 +195,18 @@ def startup():
 
 
 
+#-------------------
+# SUBSCRIBER ~~topic: coordinates~~ FROM PATH_DISPLAY.PY, add to start coordinates 
+#-------------------
+# def coordinateSubscriber():
+#     rospy.init_node('coordinateSubscriber')
+#     rospy.Subscriber('coordinates', Pose2D, moveToNewCooridinates)
+#     rospy.spin()
 
-
+# def moveToNewCooridinates(data):
+#     x_displacement = data.x
+#     y_displacement = data.y
+#     teleop.run_teleop(starting_x + x_displacement, starting_y+y_displacement)
 
  
 if __name__ == "__main__":

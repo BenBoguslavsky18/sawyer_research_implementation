@@ -1,0 +1,1 @@
+/home/airlab5/ben_ws/devel/.private/path_motion/share/path_motion/cmake/path_motionConfig.cmake

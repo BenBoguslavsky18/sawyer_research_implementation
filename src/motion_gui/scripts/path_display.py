@@ -30,20 +30,12 @@ y_screen_limit_bottom = 1000
 x_coordinate_interval = 190
 x_coordinate_interval = 380
 
-#---Drawing black rectangle and general font settings---
-# pygame.draw.rect(window, (0,0,0), (0, 0, 1920, 100)) #adding black rectangle
-# font = pygame.font.Font(None, 30) #font settings
-
 def create_spline():
     #list of 5 points (tuples) used to create curve path
     points = [(200 + i * x_coordinate_interval, randint(y_screen_limit_top, y_screen_limit_bottom) if 0 < i < 4 else 600) for i in range(5)] #setting first and last point to middle height
 
     #drawing coordinates and points
     for index, point in enumerate(points):
-        #listing coordinate values in black rectangle
-        # point_text = font.render("(" + str(points[index][0]) + ", " + str(points[index][1]) + ")", True, (255, 255, 255)) #text with smoothing
-        # point_rect = point_text.get_rect(center=(400 + index*125, 50)) 
-        # window.blit(point_text, point_rect) #blit is 'block transfer' -- puts point_text to point_rect
 
         #drawing coordinate points
         pygame.draw.circle(window, (255, 255, 255), [points[index][0], points[index][1]], 10, 0) #0 line width makes a filled in circle
@@ -65,14 +57,12 @@ def create_spline():
         global path_coordinates
         path_coordinates = [(x/2000 - 0.1, -y/1500 + 0.4) for x, y in smooth_points] #list of coords in meters, 1:2 scale. Zeroed by offset 0.1 for X and 0.3 for Y and sent to sawyer
 
-#setting and printing real coordinate values in cm
-# for point_m in path_coordinates_m:
-#     print(f"X_CM: {point_m[0]}, Y_CM: {point_m[1]}")
+        #setting and printing real coordinate values in cm
         pygame.draw.lines(window, (255, 0, 0), False, smooth_points, 4)  # False means the line is not closed, 4 is the width
 
 
 #-------------------
-# PUB SUB SYSTEM. THIS ONE SHOULD PUBLISH THE COORDS BUT ALSO SUBSCRIBE TO THE ROBOT POSITION BASED ON THE COORDINATES FOR REAL TIME VIEW FOR THE USRE
+# PUBLISHER ~~topic: coordinates~~ FOR SAWYER_CARTESIAN_MOTION.PY to use 
 #-------------------
 def coordinatePublisher():
     rospy.init_node('coordinatePublisher')
@@ -89,25 +79,14 @@ def coordinatePublisher():
         coordinate_publisher.publish(pose)
         rate.sleep()
 
+def main():
 
-try:
-    create_spline()
-    pygame.display.update()
-    coordinatePublisher()
-    pygame.display.update()
-except rospy.ROSInterruptException:
-    print("Error running the publisher")
-    pass
-
-#---main loop--- TODO NEEDS TO BE UPDATED FOR REAL TIME GRAPHICS EVENTUALLY
-while True:
-
-    #preprocessing of inputs
-    eventList = pygame.event.get()
-    for event in eventList:
-        if event.type == pygame.QUIT:
-            pygame.quit()
-
-
-    #rendering
-    pygame.display.update()      
+    try:
+        create_spline()
+        pygame.display.update()
+        coordinatePublisher()
+        pygame.display.update()
+    except rospy.ROSInterruptException:
+        print("Error running the publisher")
+        pass
+   

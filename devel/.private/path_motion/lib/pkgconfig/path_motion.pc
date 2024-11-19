@@ -1,0 +1,8 @@
+prefix=/home/airlab5/ben_ws/devel/.private/path_motion
+
+Name: path_motion
+Description: Description of path_motion
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

@@ -6,7 +6,7 @@ from intera_motion_msgs.msg import TrajectoryOptions
 from intera_interface import Limb
  
 def execute_trajectory():
-    rospy.init_node('trajectory_execution')
+    # rospy.init_node('trajectory_execution')
     limb = Limb()
  
     # Set trajectory options for Cartesian interpolation
@@ -15,9 +15,9 @@ def execute_trajectory():
     traj = MotionTrajectory(trajectory_options=traj_options, limb=limb)
  
     # Define waypoint options with suitable speed and acceleration limits
-    wpt_opts = MotionWaypointOptions(max_linear_speed=0.5,
+    wpt_opts = MotionWaypointOptions(max_linear_speed=0.1,
                                      max_linear_accel=0.1,
-                                     max_rotational_speed=1.0,
+                                     max_rotational_speed=0.1,
                                      max_rotational_accel=0.1,
                                      max_joint_speed_ratio=1.0)
     waypoint = MotionWaypoint(options=wpt_opts.to_msg(), limb=limb)
@@ -25,10 +25,8 @@ def execute_trajectory():
     # Define two main Cartesian positions for back-and-forth movement in the XZ plane
     # Fixed y-axis value to constrain movement to the XZ plane
     fixed_z = 0.2
-    # start_point = {"position": [-0.1, -0.7, fixed_z], "orientation": [0.0, 1.0, 0.0, 0.0]}
-    # end_point = {"position": [0.6, 0.3, fixed_z], "orientation": [0.0, 1.0, 0.0, 0.0]}
-    start_point = {"position": [0.0, 0.0, 0], "orientation": [0.0, 1.0, 0.0, 0.0]}
-    end_point = {"position": [0.3, 0.0, 0], "orientation": [0.0, 1.0, 0.0, 0.0]}
+    start_point = {"position": [-0.1, -0.7, fixed_z], "orientation": [0.0, 1.0, 0.0, 0.0]}
+    end_point = {"position": [0.6, 0.3, fixed_z], "orientation": [0.0, 1.0, 0.0, 0.0]}
  
     # Loop to create back-and-forth movement in the XY plane
     for i in range(2):  # Repeat at least 2 times
@@ -70,6 +68,9 @@ def execute_trajectory():
  
 if __name__ == '__main__':
     try:
+        rospy.init_node("sawyer_arm_teleop")
+        # limb = Limb()
+        # limb.move_to_neutral()
         execute_trajectory()
     except rospy.ROSInterruptException:
         pass
