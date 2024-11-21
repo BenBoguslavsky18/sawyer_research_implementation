@@ -8,8 +8,6 @@ from random import randint
 import numpy as np
 from scipy.interpolate import splprep, splev
 
-
-
 # TUPLE LIST FOR STORING X AND Y COORDINATES TO SEND TO SAWYER
 path_coordinates = []
 
@@ -63,10 +61,6 @@ class CoordinateConverter:
             cm_points.append((x_cm, y_cm))
             
         return cm_points
-    
-
-
-    
 
 
 class SawyerVisualizer:
