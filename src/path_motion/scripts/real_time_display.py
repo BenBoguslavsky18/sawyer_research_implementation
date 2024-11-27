@@ -76,6 +76,9 @@ class SawyerVisualizer:
 
         converter = CoordinateConverter()
         
+        # --------------------------
+        # Spline generation
+        # --------------------------
         #list of 5 points (tuples) used to create curve path
         self.points = [(200 + i * x_coordinate_interval, randint(y_screen_limit_top, y_screen_limit_bottom) if 0 < i < 4 else 600) for i in range(5)] #setting first and last point to middle height
         
@@ -120,9 +123,9 @@ class SawyerVisualizer:
         self.rect_width = 50
         self.rect_height = 50
         
-        # Set initial position to (200, 600)
-        self.x = 200
-        self.y = 600
+        # Set initial position
+        self.x = 800
+        self.y = 1000
         self.position_initialized = True
         
         # Scale factors to convert robot coordinates to screen coordinates
@@ -152,8 +155,8 @@ class SawyerVisualizer:
     def position_callback(self, msg):
         with self.lock:
             # Convert robot coordinates to screen coordinates
-            screen_x = (msg.pose.position.x * self.scale_x)
-            screen_y = (-msg.pose.position.y * self.scale_y)
+            screen_x = (msg.pose.position.y * self.scale_x) + 875 #new addition TODO remove hardcoding
+            screen_y = (-msg.pose.position.z * self.scale_y) + 875 #new addition TODO remove hardcoding
             
             # Clamp values to screen boundaries
             self.x = max(0, min(1920 - self.rect_width, screen_x))
