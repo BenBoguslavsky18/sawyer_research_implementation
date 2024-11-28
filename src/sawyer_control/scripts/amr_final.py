@@ -34,8 +34,6 @@ start_pose = Pose(position=Point(x=0.6, y=-0.6, z=0.3),
 end_pose = Pose(position=Point(x=0.6, y=0.2, z=0.3),
                 orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0))
 
-global control_points
-
 
 '''Visualizer Display'''
 class SawyerVisualizer:
@@ -52,10 +50,8 @@ class SawyerVisualizer:
         # --------------------------
         # Spline generation
         # --------------------------
-        ik_motion = IKMotionWaypoint()
-        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints = ik_motion.generate_spline_waypoints(start_pose, end_pose)
-        # z_values = self.spline_controlpoints[:, 2]
-        # self.z_values_pixels = self.convert_to_pixels(z_values, 0.1, 0.5, 200, 1000)
+        self.ik_motion = IKMotionWaypoint()
+        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints = self.ik_motion.generate_spline_waypoints(start_pose, end_pose)
 
         x_coords = [p[0] for p in self.display_waypoints]  # Get x coordinates
         y_coords = [p[1] for p in self.display_waypoints]  # Get y coordinates
@@ -66,9 +62,6 @@ class SawyerVisualizer:
 
         # # draw the smooth line
         self.smooth_points = list(zip(x_coords, y_coords))  # packaging new curve points back into tuples
-
-        # global path_coordinates
-        # path_coordinates = converter.pixels_to_cm(self.smooth_points)
 
         # setting and printing real coordinate values in cm
         for point in self.display_waypoints:
@@ -129,6 +122,7 @@ class SawyerVisualizer:
     
         return pixel_values
 
+
     def position_callback(self, msg):
         with self.lock:
             # Convert robot coordinates to screen coordinates
@@ -139,25 +133,32 @@ class SawyerVisualizer:
             self.x = max(0, min(1920 - self.rect_width, screen_x))
             self.y = max(0, min(1080 - self.rect_height, screen_y))
 
+
     def run(self):
         clock = pygame.time.Clock()
         running = True
+
+        trajectory_started = False
+
+        # self.ik_motion.execute_trajectory(self.spline_waypoints)
 
         while running and not rospy.is_shutdown():
             # Handle PyGame events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.KEYDOWN:
+                    # Start trajectory when spacebar is pressed
+                    if event.key == pygame.K_SPACE and not trajectory_started:
+                        self.ik_motion.execute_trajectory(self.spline_waypoints)
+                        trajectory_started = True
 
             # Clear screen with background color
             self.window.fill(self.background_color)
 
             for point in self.smooth_points:
                 # Draw a circle at each waypoint
-                pygame.draw.circle(self.window, (255, 0, 0), (int(point[0]), int(point[1])), 3)  # Radius of 3 pixels
-
-            # Draw the path first (so it appears behind the rectangle)
-            # self.draw_path()
+                pygame.draw.circle(self.window, (255, 0, 0), (int(point[0]), int(point[1])), 3)  #radius of 3 pixels
 
             # Draw rectangle at current position
             with self.lock:
@@ -229,7 +230,7 @@ class IKMotionWaypoint:
             [0.6, 0.0, random.uniform(0.1, 0.5)],
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
-        # print(control_points) #########
+
         # Generate spline for x, y, z coordinates separately
         t = np.linspace(0, 1, len(control_points))
 
@@ -248,19 +249,18 @@ class IKMotionWaypoint:
         z_spline_display = CubicSpline(t, control_points[:, 2])(t_spline_display)
         
         # Generate Pose waypoints along the spline
-        waypoints = []
+        self.waypoints = []
         for x, y, z in zip(x_spline, y_spline, z_spline):
             pose = Pose(
                 position=Point(x=x, y=y, z=z),
                 orientation=start_pose.orientation  # Use start orientation for simplicity
             )
-            waypoints.append(pose)
+            self.waypoints.append(pose)
 
         # Generate display waypoints as list of tuples
         display_waypoints = list(zip(y_spline_display, z_spline_display))
         
-
-        return control_points, waypoints, display_waypoints
+        return control_points, self.waypoints, display_waypoints
 
 
     # TO ADD WAYPOINT TO LIST OF POINTS WHEN EXECUTING TRAJECTORY
@@ -284,9 +284,9 @@ class IKMotionWaypoint:
 
 
     # TO EXECUTE SPLINE TRAJECTORY
-    def execute_trajectory(self):
+    def execute_trajectory(self, spline_waypoints):
         # Generate spline waypoints
-        spline_waypoints = self.generate_spline_waypoints(start_pose, end_pose)
+        # spline_waypoints = self.generate_spline_waypoints(start_pose, end_pose)
         
         for pose in spline_waypoints:
             self.add_waypoint(pose)
@@ -302,12 +302,12 @@ class IKMotionWaypoint:
 
 if __name__ == '__main__':
 
-    thing = SawyerVisualizer()
-    thing.run()
+    sawyerVisualizer = SawyerVisualizer()
+    sawyerVisualizer.run()
 
 
 #TODO
-# Get the robot to move -- the robot moves, just check if it moves in the same spline way as displayed in display
+# the robot moves -- real time display not running while in motion-- figure out why
 # Then, align the starting position of the square on real-time display and scale accordingly, then you're done?? 0-0
 
 # note: Maybe increase pixel radius being drawn for points for spline to 2 or 3?
