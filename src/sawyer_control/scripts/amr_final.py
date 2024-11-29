@@ -67,6 +67,10 @@ class SawyerVisualizer:
         for point in self.display_waypoints:
             pygame.draw.circle(self.window, (255, 0, 0), point, 1, 0)
 
+
+        # --------------------------
+        # Real-time display entity setup
+        # --------------------------
         # Rectangle properties
         self.rect_color = (9, 179, 54)
         self.rect_width = 50
@@ -89,28 +93,31 @@ class SawyerVisualizer:
                                            EndpointState,
                                            self.position_callback)
 
+        # --------------------------
+        # Flags and threads setup
+        # --------------------------
+        self.robot_motion_active = False  # flag to indicate if robot is moving
+        self.motion_thread = None  # thread to handle robot motion
 
-    # def convert_to_pixels(self, meter_values, m_min=0.1, m_max=0.5, p_min=200, p_max=1000):
+        self.spacebar_disabled = False # flag to make sure user only presses spacebar once (issue with pressing multiple times, trajectory is sent twice per press except initial press)
+
+
     def convert_to_pixels_x(self, meter_values, m_min, m_max, p_min, p_max):
-        # List to hold pixel values
         pixel_values = []
     
         for m in meter_values:
-            # Linear scale conversion from meters to pixels
+            # linear scale conversion from meters to pixels
             p = p_min + ((m - m_min) / (m_max - m_min)) * (p_max - p_min)
 
             pixel_values.append(p)
     
         return pixel_values
 
-
-    # def convert_to_pixels(self, meter_values, m_min=0.1, m_max=0.5, p_min=200, p_max=1000):
     def convert_to_pixels_y(self, meter_values, m_min, m_max, p_min, p_max):
-        # List to hold pixel values
         pixel_values = []
     
         for m in meter_values:
-            # Linear scale conversion from meters to pixels
+            # linear scale conversion from meters to pixels
             p = p_min + ((m - m_min) / (m_max - m_min)) * (p_max - p_min)
 
             if(m > 0.3):
@@ -125,52 +132,60 @@ class SawyerVisualizer:
 
     def position_callback(self, msg):
         with self.lock:
-            # Convert robot coordinates to screen coordinates
+            # convert robot coordinates to screen coordinates
             screen_x = (msg.pose.position.y * self.scale_x) + 875  # new addition TODO remove hardcoding
             screen_y = (-msg.pose.position.z * self.scale_y) + 875  # new addition TODO remove hardcoding
 
-            # Clamp values to screen boundaries
+            # clamp values to screen boundaries
             self.x = max(0, min(1920 - self.rect_width, screen_x))
             self.y = max(0, min(1080 - self.rect_height, screen_y))
+
+
+    # thread to separate real time display and robot motion actions
+    def start_robot_motion(self):
+        if not self.robot_motion_active:
+            self.robot_motion_active = True
+            self.motion_thread = threading.Thread(target=self.ik_motion.execute_trajectory, args=(self.spline_waypoints,))
+            self.motion_thread.start()
 
 
     def run(self):
         clock = pygame.time.Clock()
         running = True
 
-        trajectory_started = False
-
-        # self.ik_motion.execute_trajectory(self.spline_waypoints)
-
         while running and not rospy.is_shutdown():
-            # Handle PyGame events
+            # handle PyGame events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
-                    # Start trajectory when spacebar is pressed
-                    if event.key == pygame.K_SPACE and not trajectory_started:
-                        self.ik_motion.execute_trajectory(self.spline_waypoints)
-                        trajectory_started = True
+                    # start trajectory when spacebar is pressed
+                    if event.key == pygame.K_SPACE and not self.robot_motion_active and not self.spacebar_disabled: #not trajectory_started:
+                        self.spacebar_disabled = True
+                        self.start_robot_motion()
 
-            # Clear screen with background color
+            # check if motion thread has completed
+            if self.motion_thread and not self.motion_thread.is_alive():
+                self.robot_motion_active = False
+
+            # clear screen with background color
             self.window.fill(self.background_color)
 
             for point in self.smooth_points:
-                # Draw a circle at each waypoint
+                # draw a circle at each waypoint
                 pygame.draw.circle(self.window, (255, 0, 0), (int(point[0]), int(point[1])), 3)  #radius of 3 pixels
 
-            # Draw rectangle at current position
+            # draw rectangle at current position
             with self.lock:
                 pygame.draw.rect(self.window,
                                  self.rect_color,
                                  (int(self.x), int(self.y),
                                   self.rect_width, self.rect_height))
 
-            # Update display
+            # update display
             pygame.display.flip()
 
-            # Control frame rate
+            # control frame rate
             clock.tick(60)
 
         pygame.quit()
@@ -285,12 +300,10 @@ class IKMotionWaypoint:
 
     # TO EXECUTE SPLINE TRAJECTORY
     def execute_trajectory(self, spline_waypoints):
-        # Generate spline waypoints
-        # spline_waypoints = self.generate_spline_waypoints(start_pose, end_pose)
         
         for pose in spline_waypoints:
             self.add_waypoint(pose)
- 
+
         result = self.traj.send_trajectory()
         if result is None:
             rospy.logerr("Trajectory FAILED to send")
@@ -307,7 +320,4 @@ if __name__ == '__main__':
 
 
 #TODO
-# the robot moves -- real time display not running while in motion-- figure out why
 # Then, align the starting position of the square on real-time display and scale accordingly, then you're done?? 0-0
-
-# note: Maybe increase pixel radius being drawn for points for spline to 2 or 3?
