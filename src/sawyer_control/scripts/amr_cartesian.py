@@ -73,8 +73,8 @@ class IKMotionWaypoint:
     def execute_trajectory(self):
         # Define two main Cartesian waypoints using proper Pose format
         waypoints = [
-            Pose(position=Point(x=constant_x, y=0.2, z=0.3), orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0)),
-            Pose(position=Point(x=constant_x, y=-0.7, z=0.3), orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0))
+            Pose(position=Point(x=0.6, y=-0.6, z=0.3), orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0)),
+            # Pose(position=Point(x=constant_x, y=-0.7, z=0.3), orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0))
         ]
  
         for pose in waypoints:

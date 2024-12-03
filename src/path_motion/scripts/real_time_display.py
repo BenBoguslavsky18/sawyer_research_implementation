@@ -135,7 +135,7 @@ class SawyerVisualizer:
         # Threading lock for position updates
         self.lock = threading.Lock()
         
-        # Start ROS subscriber
+        # Start ROS subscriber  
         self.subscriber = rospy.Subscriber("/robot/limb/right/endpoint_state",
                                          EndpointState,
                                          self.position_callback)

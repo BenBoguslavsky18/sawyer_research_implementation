@@ -82,8 +82,8 @@ class SawyerVisualizer:
         self.position_initialized = True
 
         # Scale factors to convert robot coordinates to screen coordinates
-        self.scale_x = 1000  # pixels per meter
-        self.scale_y = 1000  # pixels per meter
+        self.scale_x = 1900  # pixels per meter
+        self.scale_y = 1950  # pixels per meter
 
         # Threading lock for position updates
         self.lock = threading.Lock()
@@ -133,8 +133,8 @@ class SawyerVisualizer:
     def position_callback(self, msg):
         with self.lock:
             # convert robot coordinates to screen coordinates
-            screen_x = (msg.pose.position.y * self.scale_x) + 875  # new addition TODO remove hardcoding
-            screen_y = (-msg.pose.position.z * self.scale_y) + 875  # new addition TODO remove hardcoding
+            screen_x = (msg.pose.position.y * self.scale_x) + 1325  # new addition TODO Edit here to change scale the real time display
+            screen_y = (-msg.pose.position.z * self.scale_y) + 1150  # new addition TODO Edit here to change scale the real time display
 
             # clamp values to screen boundaries
             self.x = max(0, min(1920 - self.rect_width, screen_x))
