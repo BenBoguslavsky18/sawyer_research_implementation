@@ -1,3 +1,1 @@
-[ 50%] [32m[1mLinking CXX executable /home/airlab5/ben_ws/devel/.private/sns_ik_examples/lib/sns_ik_examples/all_ik_tests[0m
-/usr/bin/ld: warning: liborocos-kdl.so.1.4, needed by /opt/ros/noetic/lib/libkdl_parser.so, may conflict with liborocos-kdl.so.1.5
 [100%] Built target all_ik_tests
