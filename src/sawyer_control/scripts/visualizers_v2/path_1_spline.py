@@ -92,10 +92,43 @@ class SawyerVisualizer:
             self.y = max(0, min(1080 - self.rect_height, screen_y))
 
     def move_to_start_position(self):
+        # rospy.loginfo("Moving to start position...")
+        # if not self.robot_ready_to_move:
+        #     self.start_position_thread = threading.Thread(target=self.ik_motion.move_to_pose, args=(start_pose))
+        #     self.start_position_thread.start()
+        #     # self.ik_motion.move_to_pose(start_pose)  # Move to start position
+        #     rospy.loginfo("Reached start position.")
+        #     self.robot_ready_to_move = True
+ 
         rospy.loginfo("Moving to start position...")
-        self.ik_motion.move_to_pose(start_pose)  # Move to start position
-        rospy.loginfo("Reached start position.")
-        self.robot_ready_to_move = True
+        if not self.robot_ready_to_move:
+            # Create a threading Event to signal when the move is complete
+            self.start_position_event = threading.Event()
+            
+            def move_and_signal():
+                self.ik_motion.move_to_pose(start_pose)
+                # Set the event to signal the move is complete
+                self.start_position_event.set()
+            
+            # Start the thread for moving to start position
+            self.start_position_thread = threading.Thread(target=move_and_signal)
+            self.start_position_thread.start()
+            
+            # Start another thread to wait for completion without blocking the main thread
+            def wait_for_move_completion():
+                self.start_position_event.wait()
+                # Use rospy.is_shutdown() to check if ROS is still running
+                if not rospy.is_shutdown():
+                    self.robot_ready_to_move = True
+
+
+                    self.spacebar_disabled = False  # Re-enable spacebar
+
+
+                    rospy.loginfo("Reached start position.")
+            
+            self.wait_thread = threading.Thread(target=wait_for_move_completion)
+            self.wait_thread.start()
 
     def start_robot_motion(self):
         if self.robot_ready_to_move and not self.robot_motion_active:
@@ -113,7 +146,8 @@ class SawyerVisualizer:
                     running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        if not self.robot_ready_to_move:  # First press
+                        if not self.robot_ready_to_move and not self.spacebar_disabled:  # First press
+                            self.spacebar_disabled = True
                             self.move_to_start_position()
                         elif not self.robot_motion_active:  # Second press
                             self.start_robot_motion()
