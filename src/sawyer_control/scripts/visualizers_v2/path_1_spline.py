@@ -15,6 +15,7 @@ from scipy.interpolate import CubicSpline
 
 import numpy as np
 import random
+import math
 
 import pygame
 import threading
@@ -50,10 +51,10 @@ class SawyerVisualizer:
         x_coords = self.convert_to_pixels_x(x_coords, -0.6, 0.2, 200, 1720)
         y_coords = self.convert_to_pixels_y(y_coords, 0.1, 0.5, 200, 1000)
         self.smooth_points = list(zip(x_coords, y_coords))
+        self.trail_points = [] #list of points to store the path moves by the robot when going along the trajectory
 
-        self.rect_color = (9, 179, 54)
-        self.rect_width = 50
-        self.rect_height = 50
+        self.icon_color = (9, 179, 54) # the real-time display position icon
+        self.icon_radius = 30
         self.x = 800
         self.y = 1000
         self.position_initialized = True
@@ -86,10 +87,10 @@ class SawyerVisualizer:
 
     def position_callback(self, msg):
         with self.lock:
-            screen_x = (msg.pose.position.y * self.scale_x) + 1325
-            screen_y = (-msg.pose.position.z * self.scale_y) + 1150
-            self.x = max(0, min(1920 - self.rect_width, screen_x))
-            self.y = max(0, min(1080 - self.rect_height, screen_y))
+            screen_x = (msg.pose.position.y * self.scale_x) + 1340
+            screen_y = (-msg.pose.position.z * self.scale_y) + 1180
+            self.x = max(0, min(1920 - self.icon_radius, screen_x)) # the position on the screen
+            self.y = max(0, min(1080 - self.icon_radius, screen_y)) # the position on the screen
 
     def move_to_start_position(self):
         # rospy.loginfo("Moving to start position...")
@@ -120,15 +121,14 @@ class SawyerVisualizer:
                 # Use rospy.is_shutdown() to check if ROS is still running
                 if not rospy.is_shutdown():
                     self.robot_ready_to_move = True
-
-
                     self.spacebar_disabled = False  # Re-enable spacebar
-
-
                     rospy.loginfo("Reached start position.")
             
             self.wait_thread = threading.Thread(target=wait_for_move_completion)
             self.wait_thread.start()
+
+    def record_realtime_position(self):
+        self.trail_points.append((int(self.x), int(self.y)))
 
     def start_robot_motion(self):
         if self.robot_ready_to_move and not self.robot_motion_active:
@@ -152,14 +152,20 @@ class SawyerVisualizer:
                         elif not self.robot_motion_active:  # Second press
                             self.start_robot_motion()
 
+
             self.window.fill(self.background_color)
             for point in self.smooth_points:
-                pygame.draw.circle(self.window, (255, 0, 0), (int(point[0]), int(point[1])), 5)
+                pygame.draw.circle(self.window, (255, 0, 0), ((int(point[0]), point[1])), 5)
+            
+            if(self.robot_motion_active and self.robot_ready_to_move): #draw real time trail when following trajectory
+                self.record_realtime_position()
+                for point in self.trail_points:
+                    pygame.draw.circle(self.window, (0, 0, 0), (point[0], point[1]), 5)
+
             with self.lock:
-                pygame.draw.rect(self.window,
-                                 self.rect_color,
-                                 (int(self.x), int(self.y),
-                                  self.rect_width, self.rect_height))
+                # pygame.draw.rect(self.window, self.rect_color, (int(self.x), int(self.y), self.rect_width, self.rect_height))
+                pygame.draw.circle(self.window, self.icon_color, (int(self.x), int(self.y)), self.icon_radius)#, self.rect_height))
+            
             pygame.display.flip()
             clock.tick(60)
 
@@ -178,6 +184,13 @@ class IKMotionWaypoint:
         self.ik_joint_positions_prev = kdl.JntArray(self.num_joints)
         self.traj = MotionTrajectory(limb=self._limb)
         rospy.loginfo("IK and MotionWaypoint setup complete.")
+
+    def rotate_point(self, x, y, angle_deg):
+        """Rotate a point in the x-y plane by a given angle in degrees clockwise."""
+        angle_rad = math.radians(-angle_deg)  # Convert to radians and negate for clockwise rotation
+        x_rotated = x * math.cos(angle_rad) - y * math.sin(angle_rad)
+        y_rotated = x * math.sin(angle_rad) + y * math.cos(angle_rad)
+        return x_rotated, y_rotated
 
     def load_chain(self, filename, base_link, end_effector_link):
         with open(filename, "r") as urdf_file:
