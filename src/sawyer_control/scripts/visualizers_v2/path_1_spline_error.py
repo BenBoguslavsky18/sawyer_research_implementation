@@ -14,6 +14,7 @@ from kdl_parser_py.urdf import treeFromUrdfModel
 from scipy.interpolate import CubicSpline
 
 import numpy as np
+import random
 
 import pygame
 import threading
@@ -35,14 +36,13 @@ end_pose = Pose(position=Point(x=0.6, y=0.5, z=0.3),
 class SawyerVisualizer:
     def __init__(self):
         rospy.init_node('positionSubscriber', anonymous=True)
-
         pygame.init()
         self.window = pygame.display.set_mode((1920, 1420))
         self.background_color = (2, 114, 212)
         pygame.display.set_caption("Sawyer Real-Time Display")
 
         self.ik_motion = IKMotionWaypoint()
-        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints = self.ik_motion.generate_spline_waypoints(start_pose, end_pose)
+        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints, self.spline_waypoints_false = self.ik_motion.generate_spline_waypoints(start_pose, end_pose)
 
         x_coords = [p[0] for p in self.display_waypoints]
         y_coords = [p[1] for p in self.display_waypoints]
@@ -123,7 +123,7 @@ class SawyerVisualizer:
     def start_robot_motion(self):
         if self.robot_ready_to_move and not self.robot_motion_active:
             self.robot_motion_active = True
-            self.motion_thread = threading.Thread(target=self.ik_motion.execute_trajectory, args=(self.spline_waypoints,))
+            self.motion_thread = threading.Thread(target=self.ik_motion.execute_trajectory, args=(self.spline_waypoints_false,))   # self.spline_waypoints,))
             self.motion_thread.start()
 
     def run(self):
@@ -221,7 +221,7 @@ class IKMotionWaypoint:
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
-    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40):
+    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40): #TODO Test different num_points parameters
         control_points = np.array([
             [start_pose.position.x, start_pose.position.y, start_pose.position.z],
             [0.6, -0.1, 0.4],
@@ -230,21 +230,42 @@ class IKMotionWaypoint:
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
+        # modified_control_point_index = random.randint(1, 3)
+        # modified_control_point_value = control_points[modified_control_point_index, 2]
+        # coordinate_change = random.uniform(0.1, 0.125)
+
+        false_control_points = control_points.copy()
+        # if modified_control_point_value <= 0.3:
+        #     false_control_points[modified_control_point_index, 2] = modified_control_point_value + coordinate_change
+        # else:
+        #     false_control_points[modified_control_point_index, 2] = modified_control_point_value - coordinate_change
+
+        false_control_points[3, 2] = 0.3
+
         t = np.linspace(0, 1, len(control_points))
         t_spline = np.linspace(0, 1, num_points)
+        t_spline_display = np.linspace(0, 1, 1000)
+
         x_spline = CubicSpline(t, control_points[:, 0])(t_spline)
         y_spline = CubicSpline(t, control_points[:, 1])(t_spline)
         z_spline = CubicSpline(t, control_points[:, 2])(t_spline)
 
-        t_spline_display = np.linspace(0, 1, 1000)
         y_spline_display = CubicSpline(t, control_points[:, 1])(t_spline_display)
         z_spline_display = CubicSpline(t, control_points[:, 2])(t_spline_display)
+
+        t_false = np.linspace(0, 1, len(false_control_points))
+        x_spline_false = CubicSpline(t_false, false_control_points[:, 0])(t_spline)
+        y_spline_false = CubicSpline(t_false, false_control_points[:, 1])(t_spline)
+        z_spline_false = CubicSpline(t_false, false_control_points[:, 2])(t_spline)
 
         self.waypoints = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
                           for x, y, z in zip(x_spline, y_spline, z_spline)]
 
+        self.waypoints_false = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
+                                for x, y, z in zip(x_spline_false, y_spline_false, z_spline_false)]
+
         display_waypoints = list(zip(y_spline_display, z_spline_display))
-        return control_points, self.waypoints, display_waypoints
+        return control_points, self.waypoints, display_waypoints, self.waypoints_false
     
     def add_waypoint(self, pose, limb_name="right_hand"):
         """

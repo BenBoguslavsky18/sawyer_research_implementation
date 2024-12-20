@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 
-#  This script runs the sawyer-spline visualizer with no intentional path error
-
 import rospy
 from geometry_msgs.msg import Pose, Point, Quaternion
 from intera_motion_interface import MotionTrajectory, MotionWaypoint, MotionWaypointOptions
 from intera_interface import Limb
 from intera_core_msgs.msg import EndpointState
+import std_msgs.msg
 
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
 from kdl_parser_py.urdf import treeFromUrdfModel
-from scipy.interpolate import CubicSpline
 
 import numpy as np
-
 import pygame
 import threading
 
@@ -31,10 +28,10 @@ end_pose = Pose(position=Point(x=0.6, y=0.5, z=0.3),
                 orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0))
 
 
-'''Visualizer Display'''
 class SawyerVisualizer:
     def __init__(self):
         rospy.init_node('positionSubscriber', anonymous=True)
+        self.stiffness_pub = rospy.Publisher('/stiffness_update', std_msgs.msg.String, queue_size=10)
 
         pygame.init()
         self.window = pygame.display.set_mode((1920, 1420))
@@ -42,20 +39,20 @@ class SawyerVisualizer:
         pygame.display.set_caption("Sawyer Real-Time Display")
 
         self.ik_motion = IKMotionWaypoint()
-        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints = self.ik_motion.generate_spline_waypoints(start_pose, end_pose)
+        self.spline_controlpoints, self.spline_waypoints, self.display_waypoints, self.spline_waypoints_false = self.ik_motion.generate_spline_waypoints(start_pose, end_pose)
 
         x_coords = [p[0] for p in self.display_waypoints]
         y_coords = [p[1] for p in self.display_waypoints]
         x_coords = self.convert_to_pixels_x(x_coords, -0.3, 0.5, 200, 1720)
         y_coords = self.convert_to_pixels_y(y_coords, 0.1, 0.5, 200, 1000)
-        self.smooth_points = list(zip(x_coords, y_coords))
-        self.trail_points = [] #list of points to store the path moves by the robot when going along the trajectory
 
-        self.icon_color = (9, 179, 54) # the real-time display position icon
-        self.icon_radius = 30
+        self.smooth_points = list(zip(x_coords, y_coords))
+
+        self.rect_color = (9, 179, 54)
+        self.rect_width = 50
+        self.rect_height = 50
         self.x = 800
         self.y = 1000
-        self.position_initialized = True
         self.scale_x = 1900
         self.scale_y = 1950
         self.lock = threading.Lock()
@@ -65,7 +62,7 @@ class SawyerVisualizer:
                                            self.position_callback)
 
         self.robot_motion_active = False
-        self.robot_ready_to_move = False
+        self.robot_ready_to_move = False  # New flag for readiness
         self.motion_thread = None
         self.spacebar_disabled = False
 
@@ -85,46 +82,43 @@ class SawyerVisualizer:
 
     def position_callback(self, msg):
         with self.lock:
-            screen_x = (msg.pose.position.y * self.scale_x) + 770 #original 1340
-            screen_y = (-msg.pose.position.z * self.scale_y) + 1180
-            self.x = max(0, min(1920 - self.icon_radius, screen_x)) # the position on the screen
-            self.y = max(0, min(1080 - self.icon_radius, screen_y)) # the position on the screen
+            screen_x = (msg.pose.position.y * self.scale_x) + 770
+            screen_y = (-msg.pose.position.z * self.scale_y) + 1150
+            self.x = max(0, min(1920 - self.rect_width, screen_x))
+            self.y = max(0, min(1080 - self.rect_height, screen_y))
 
     def move_to_start_position(self):
         rospy.loginfo("Moving to start position...")
-        if not self.robot_ready_to_move:
-            # Create a threading Event to signal when the move is complete
-            self.start_position_event = threading.Event()
-            
-            def move_and_signal():
-                self.ik_motion.move_to_pose(start_pose)
-                # Set the event to signal the move is complete
-                self.start_position_event.set()
-            
-            # Start the thread for moving to start position
-            self.start_position_thread = threading.Thread(target=move_and_signal)
-            self.start_position_thread.start()
-            
-            # Start another thread to wait for completion without blocking the main thread
-            def wait_for_move_completion():
-                self.start_position_event.wait()
-                # Use rospy.is_shutdown() to check if ROS is still running
-                if not rospy.is_shutdown():
-                    self.robot_ready_to_move = True
-                    self.spacebar_disabled = False  # Re-enable spacebar
-                    rospy.loginfo("Reached start position.")
-            
-            self.wait_thread = threading.Thread(target=wait_for_move_completion)
-            self.wait_thread.start()
-
-    def record_realtime_position(self):
-        self.trail_points.append((int(self.x), int(self.y)))
+        self.ik_motion.move_to_pose(start_pose)  # Move to the start pose
+        rospy.loginfo("Reached start position.")
+        self.robot_ready_to_move = True  # Set readiness flag
 
     def start_robot_motion(self):
         if self.robot_ready_to_move and not self.robot_motion_active:
             self.robot_motion_active = True
-            self.motion_thread = threading.Thread(target=self.ik_motion.execute_trajectory, args=(self.spline_waypoints,))
+            self.motion_thread = threading.Thread(target=self.execute_with_stiffness_updates, daemon=True)
             self.motion_thread.start()
+
+    def execute_with_stiffness_updates(self):
+        rospy.loginfo("Starting spline trajectory...")
+        for i, pose in enumerate(self.ik_motion.waypoints_false):
+            if self.is_false_trajectory(i):
+                self.update_stiffness([1000.0, 1000.0, 1000.0, 50.0, 50.0, 50.0])
+            else:
+                self.update_stiffness([500.0, 30.0, 30.0, 30.0, 30.0, 30.0])
+            self.ik_motion.add_waypoint(pose)
+        self.ik_motion.execute_trajectory()
+        self.robot_motion_active = False
+        rospy.loginfo("Spline trajectory completed.")
+
+    def update_stiffness(self, stiffness):
+        stiffness_msg = std_msgs.msg.String()
+        stiffness_msg.data = str(stiffness)
+        self.stiffness_pub.publish(stiffness_msg)
+        rospy.loginfo(f"Stiffness updated: {stiffness}")
+
+    def is_false_trajectory(self, index):
+        return 1 <= index <= 3
 
     def run(self):
         clock = pygame.time.Clock()
@@ -135,27 +129,20 @@ class SawyerVisualizer:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        if not self.robot_ready_to_move and not self.spacebar_disabled:  # First press
-                            self.spacebar_disabled = True
+                    if event.key == pygame.K_SPACE and not self.robot_motion_active:
+                        if not self.robot_ready_to_move:  # First press: move to start
                             self.move_to_start_position()
-                        elif not self.robot_motion_active:  # Second press
+                        else:  # Second press: start motion
                             self.start_robot_motion()
-
 
             self.window.fill(self.background_color)
             for point in self.smooth_points:
-                pygame.draw.circle(self.window, (255, 0, 0), ((int(point[0]), point[1])), 5)
-            
-            if(self.robot_motion_active and self.robot_ready_to_move): #draw real time trail when following trajectory
-                self.record_realtime_position()
-                for point in self.trail_points:
-                    pygame.draw.circle(self.window, (0, 0, 0), (point[0], point[1]), 5)
-
+                pygame.draw.circle(self.window, (255, 0, 0), (int(point[0]), int(point[1])), 5)
             with self.lock:
-                # pygame.draw.rect(self.window, self.rect_color, (int(self.x), int(self.y), self.rect_width, self.rect_height))
-                pygame.draw.circle(self.window, self.icon_color, (int(self.x), int(self.y)), self.icon_radius)#, self.rect_height))
-            
+                pygame.draw.rect(self.window,
+                                 self.rect_color,
+                                 (int(self.x), int(self.y),
+                                  self.rect_width, self.rect_height))
             pygame.display.flip()
             clock.tick(60)
 
@@ -163,7 +150,6 @@ class SawyerVisualizer:
         rospy.signal_shutdown("PyGame window closed")
 
 
-'''ROBOT MOTION'''
 class IKMotionWaypoint:
     def __init__(self, limb="right"):
         self._limb = Limb(limb)
@@ -221,35 +207,49 @@ class IKMotionWaypoint:
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
-    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40):
+    def generate_spline_waypoints(self, start_pose, end_pose, num_points=10):
         control_points = np.array([
             [start_pose.position.x, start_pose.position.y, start_pose.position.z],
-            [0.6, -0.1, 0.4],
-            [0.6, 0.1, 0.2],
-            [0.6, 0.3, 0.4],
+            [0.6, -0.1, 0.5],
+            [0.6, 0.1, 0.15],
+            [0.6, 0.3, 0.35],
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
-        t = np.linspace(0, 1, len(control_points))
-        t_spline = np.linspace(0, 1, num_points)
-        x_spline = CubicSpline(t, control_points[:, 0])(t_spline)
-        y_spline = CubicSpline(t, control_points[:, 1])(t_spline)
-        z_spline = CubicSpline(t, control_points[:, 2])(t_spline)
+        false_control_points = control_points.copy()
+        false_control_points[3, 2] = 0.2
 
-        t_spline_display = np.linspace(0, 1, 1000)
-        y_spline_display = CubicSpline(t, control_points[:, 1])(t_spline_display)
-        z_spline_display = CubicSpline(t, control_points[:, 2])(t_spline_display)
+        # true path motion
+        x_straight_path = control_points[:, 0]
+        y_straight_path = control_points[:, 1]
+        z_straight_path = control_points[:, 2]
 
         self.waypoints = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
-                          for x, y, z in zip(x_spline, y_spline, z_spline)]
+                          for x, y, z in zip(x_straight_path, y_straight_path, z_straight_path)]
 
-        display_waypoints = list(zip(y_spline_display, z_spline_display))
-        return control_points, self.waypoints, display_waypoints
-    
+        # false path motion
+        x_false_straight_path_display = false_control_points[:, 0]
+        y_false_straight_path_display = false_control_points[:, 1]
+        z_false_straight_path_display = false_control_points[:, 2]
+
+        self.waypoints_false = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
+                          for x, y, z in zip(x_false_straight_path_display, y_false_straight_path_display, z_false_straight_path_display)]
+
+        # interpolation for true path display
+        y_straight_path_display = []
+        for i in range(len(y_straight_path) - 1):
+            interpolated_values = np.linspace(y_straight_path[i], y_straight_path[i+1], 200, False)
+            y_straight_path_display.extend(interpolated_values)
+        z_straight_path_display = []
+        for i in range(len(z_straight_path) - 1):
+            interpolated_values = np.linspace(z_straight_path[i], z_straight_path[i+1], 200, False)
+            z_straight_path_display.extend(interpolated_values)
+
+        display_waypoints = list(zip(y_straight_path_display, z_straight_path_display))
+
+        return control_points, self.waypoints, display_waypoints, self.waypoints_false
+
     def add_waypoint(self, pose, limb_name="right_hand"):
-        """
-        Adds a waypoint to the trajectory based on the given pose.
-        """
         joint_angles = self.calculate_ik(pose)
         if joint_angles is None:
             rospy.logerr("Skipping waypoint due to IK failure")
@@ -267,14 +267,7 @@ class IKMotionWaypoint:
         rospy.loginfo("Waypoint added at: {}".format(pose.position))
         return True
 
-
-    def execute_trajectory(self, spline_waypoints):
-        """
-        Executes a trajectory based on the given spline waypoints.
-        """
-        for pose in spline_waypoints:
-            self.add_waypoint(pose)
-
+    def execute_trajectory(self):
         result = self.traj.send_trajectory()
         if result is None:
             rospy.logerr("Trajectory FAILED to send")
@@ -282,6 +275,7 @@ class IKMotionWaypoint:
             rospy.loginfo("Trajectory successfully executed!")
         else:
             rospy.logerr(f"Trajectory execution failed with error {result.errorId}")
+
 
 if __name__ == '__main__':
     sawyerVisualizer = SawyerVisualizer()
