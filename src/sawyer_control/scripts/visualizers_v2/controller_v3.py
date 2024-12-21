@@ -4,8 +4,7 @@ import rospy
 from geometry_msgs.msg import Pose
 from intera_core_msgs.msg import InteractionControlCommand
 from intera_motion_interface import InteractionOptions, InteractionPublisher
-from std_msgs.msg import Bool, Empty  # For receiving error state and suppressing collision avoidance
-
+from std_msgs.msg import Bool, Empty, Float64MultiArray  # For receiving stiffness updates and error states
 
 def setup_cartesian_impedance_control(stiffness, damping, max_stiffness, interaction_frame, control_mode, nullspace_stiffness):
     interaction_options = InteractionOptions()
@@ -13,8 +12,6 @@ def setup_cartesian_impedance_control(stiffness, damping, max_stiffness, interac
     # Activate interaction control
     interaction_options.set_interaction_control_active(True)
     interaction_options.set_K_impedance(stiffness)
-    #interaction_options.set_force_command([0.0, 0.0, 0.0])
-    #interaction_options.set_max_impedance([False, False, False, False, False, False]) 
     interaction_options.set_K_nullspace(nullspace_stiffness)
     interaction_options.set_max_impedance(max_stiffness)
     interaction_options.set_interaction_control_mode(control_mode)
@@ -29,7 +26,6 @@ def setup_cartesian_impedance_control(stiffness, damping, max_stiffness, interac
 
     return msg
 
-
 def shutdown_handler(ic_pub):
     """
     Handler to switch back to position control mode upon shutdown.
@@ -37,16 +33,13 @@ def shutdown_handler(ic_pub):
     rospy.loginfo("Shutting down and switching to position control mode.")
     ic_pub.send_position_mode_cmd()
 
-
 class CartesianImpedanceController:
     def __init__(self):
         rospy.init_node('cartesian_impedance_controller')
 
-        # Default stiffness and error stiffness
+        # Default stiffness
         self.default_stiffness = [1000.0, 20.0, 20.0, 30.0, 30.0, 30.0]
-        self.error_stiffness = [10000.0, 10000.0, 10000.0, 30.0, 30.0, 30.0]
         self.current_stiffness = self.default_stiffness
-        self.error_detected = False
 
         # Initialize other parameters
         self.damping = rospy.get_param("~damping", [8.0, 8.0, 8.0, 2.0, 2.0, 2.0])
@@ -72,25 +65,18 @@ class CartesianImpedanceController:
             '/robot/limb/right/suppress_collision_avoidance', Empty, queue_size=10
         )
 
-        # Subscribe to the error state topic
-        rospy.Subscriber('/error_state', Bool, self.error_state_callback)
+        # Subscribe to stiffness updates from the trajectory script
+        rospy.Subscriber('/stiffness_update', Float64MultiArray, self.stiffness_update_callback)
 
         # Register the shutdown handler
         rospy.on_shutdown(lambda: shutdown_handler(self.ic_pub))
 
-    def error_state_callback(self, msg):
+    def stiffness_update_callback(self, msg):
         """
-        Callback to handle error state changes.
+        Callback to handle stiffness updates from the trajectory script.
         """
-        rospy.loginfo("[%s] Received error state: %s", rospy.get_time(), msg.data)
-        if msg.data and not self.error_detected:
-            self.error_detected = True
-            self.current_stiffness = [10000.0, 10000.0, 10000.0, 30.0, 30.0, 30.0]
-            rospy.loginfo("[%s] Error detected: Stiffness adjusted to %s", rospy.get_time(), self.current_stiffness)
-        elif not msg.data and self.error_detected:
-            self.error_detected = False
-            self.current_stiffness = [1000.0, 20.0, 20.0, 30.0, 30.0, 30.0]
-            rospy.loginfo("[%s] Error resolved: Stiffness reverted to %s", rospy.get_time(), self.current_stiffness)
+        rospy.loginfo("Received stiffness update: %s", msg.data)  # Log received stiffness
+        self.current_stiffness = msg.data
 
     def publish_control(self):
         """
@@ -125,7 +111,6 @@ class CartesianImpedanceController:
         Main loop for the controller.
         """
         self.publish_control()
-
 
 if __name__ == '__main__':
     try:

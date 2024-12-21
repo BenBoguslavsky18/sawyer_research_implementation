@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#  This script runs the sawyer-spline visualizer with no intentional path error
+# This script runs the sawyer-spline visualizer with dynamic error detection and signaling
 
 import rospy
 from geometry_msgs.msg import Pose, Point, Quaternion
@@ -13,9 +13,9 @@ from urdf_parser_py.urdf import URDF
 from kdl_parser_py.urdf import treeFromUrdfModel
 from scipy.interpolate import CubicSpline
 
-import numpy as np
-import random
+from std_msgs.msg import Bool  # Import Bool for error signaling
 
+import numpy as np
 import pygame
 import threading
 
@@ -49,9 +49,9 @@ class SawyerVisualizer:
         x_coords = self.convert_to_pixels_x(x_coords, -0.3, 0.5, 200, 1720)
         y_coords = self.convert_to_pixels_y(y_coords, 0.1, 0.5, 200, 1000)
         self.smooth_points = list(zip(x_coords, y_coords))
-        self.trail_points = [] #list of points to store the path moves by the robot when going along the trajectory
+        self.trail_points = []  # List of points to store the path moves by the robot along the trajectory
 
-        self.icon_color = (9, 179, 54) # the real-time display position icon
+        self.icon_color = (9, 179, 54)  # The real-time display position icon
         self.icon_radius = 30
         self.x = 800
         self.y = 1000
@@ -60,9 +60,10 @@ class SawyerVisualizer:
         self.scale_y = 1950
         self.lock = threading.Lock()
 
-        self.subscriber = rospy.Subscriber("/robot/limb/right/endpoint_state",
-                                           EndpointState,
-                                           self.position_callback)
+        # ROS publishers and state flags
+        self.subscriber = rospy.Subscriber("/robot/limb/right/endpoint_state", EndpointState, self.position_callback)
+        self.error_publisher = rospy.Publisher('/error_state', Bool, queue_size=10)  # Publisher for error state
+        self.error_detected = False  # Flag for error state
 
         self.robot_motion_active = False
         self.robot_ready_to_move = False
@@ -85,10 +86,10 @@ class SawyerVisualizer:
 
     def position_callback(self, msg):
         with self.lock:
-            screen_x = (msg.pose.position.y * self.scale_x) + 770 #original 1340
+            screen_x = (msg.pose.position.y * self.scale_x) + 770
             screen_y = (-msg.pose.position.z * self.scale_y) + 1180
-            self.x = max(0, min(1920 - self.icon_radius, screen_x)) # the position on the screen
-            self.y = max(0, min(1080 - self.icon_radius, screen_y)) # the position on the screen
+            self.x = max(0, min(1920 - self.icon_radius, screen_x))
+            self.y = max(0, min(1080 - self.icon_radius, screen_y))
 
     def move_to_start_position(self):
         rospy.loginfo("Moving to start position...")
@@ -123,7 +124,36 @@ class SawyerVisualizer:
     def start_robot_motion(self):
         if self.robot_ready_to_move and not self.robot_motion_active:
             self.robot_motion_active = True
-            self.motion_thread = threading.Thread(target=self.ik_motion.execute_trajectory, args=(self.spline_waypoints_false,))   # self.spline_waypoints,))
+
+            def execute_and_signal_error():
+                total_waypoints = len(self.spline_waypoints_false)
+                error_start = int(0.3* total_waypoints)  # Error starts at 25% of waypoints
+                error_end = int(0.8 * total_waypoints)    # Error ends at 50% of waypoints
+
+                for idx, pose in enumerate(self.spline_waypoints_false):
+                    # Detect error region
+                    if error_start <= idx < error_end:
+                        if not self.error_detected:
+                            self.error_detected = True
+                            self.error_publisher.publish(self.error_detected)
+                            rospy.loginfo(f"Error region started at waypoint {idx}")
+                    else:
+                        if self.error_detected:
+                            self.error_detected = False
+                            self.error_publisher.publish(self.error_detected)
+                            rospy.loginfo(f"Error region ended at waypoint {idx}")
+
+                    self.ik_motion.add_waypoint(pose)
+
+                result = self.ik_motion.traj.send_trajectory()
+                if result and result.result:
+                    rospy.loginfo("Trajectory successfully executed!")
+                else:
+                    rospy.logerr("Trajectory execution failed.")
+
+                self.robot_motion_active = False
+
+            self.motion_thread = threading.Thread(target=execute_and_signal_error)
             self.motion_thread.start()
 
     def run(self):
@@ -221,7 +251,7 @@ class IKMotionWaypoint:
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
-    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40): 
+    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40): #TODO Test different num_points parameters
         control_points = np.array([
             [start_pose.position.x, start_pose.position.y, start_pose.position.z],
             [0.6, -0.1, 0.4],
@@ -230,10 +260,20 @@ class IKMotionWaypoint:
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
+        # modified_control_point_index = random.randint(1, 3)
+        # modified_control_point_value = control_points[modified_control_point_index, 2]
+        # coordinate_change = random.uniform(0.1, 0.125)
 
         false_control_points = control_points.copy()
-        false_control_points[3, 2] = 0.3
+        # if modified_control_point_value <= 0.3:
+        #     false_control_points[modified_control_point_index, 2] = modified_control_point_value + coordinate_change
+        # else:
+        #     false_control_points[modified_control_point_index, 2] = modified_control_point_value - coordinate_change
 
+        false_control_points[3, 2] = 0.0
+        #false_control_points[3,3] =
+        #false_control_points[3,3]= 0.15
+        #false_control_points[2,3]= 0.2
 
         t = np.linspace(0, 1, len(control_points))
         t_spline = np.linspace(0, 1, num_points)

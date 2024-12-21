@@ -7,6 +7,7 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 from intera_motion_interface import MotionTrajectory, MotionWaypoint, MotionWaypointOptions
 from intera_interface import Limb
 from intera_core_msgs.msg import EndpointState
+from std_msgs.msg import Float64MultiArray
 
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
@@ -174,6 +175,10 @@ class IKMotionWaypoint:
         self.ik_joint_positions_prev = kdl.JntArray(self.num_joints)
         self.traj = MotionTrajectory(limb=self._limb)
         rospy.loginfo("IK and MotionWaypoint setup complete.")
+        
+        self.stiffness_pub = rospy.Publisher('/stiffness_update', Float64MultiArray, queue_size=10)
+        self.normal_stiffness = [500.0, 30.0, 30.0, 30.0, 30.0, 30.0]  # Normal stiffness values
+        self.high_stiffness = [10000.0, 10000.0, 10000.0, 30.0, 30.0, 30.0]  # High stiffness for false trajectory
 
     def load_chain(self, filename, base_link, end_effector_link):
         with open(filename, "r") as urdf_file:
@@ -217,7 +222,7 @@ class IKMotionWaypoint:
         if result is None:
             rospy.logerr("Failed to move to pose: Trajectory failed to send")
         elif result.result:
-            rospy.loginfo("Successfully moved to pose!")
+            rospy.loginfo("Successfully moved to pos e!")
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
@@ -230,10 +235,8 @@ class IKMotionWaypoint:
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
-
         false_control_points = control_points.copy()
-        false_control_points[3, 2] = 0.3
-
+        false_control_points[3, 2] = -0.2
 
         t = np.linspace(0, 1, len(control_points))
         t_spline = np.linspace(0, 1, num_points)
@@ -252,14 +255,46 @@ class IKMotionWaypoint:
         z_spline_false = CubicSpline(t_false, false_control_points[:, 2])(t_spline)
 
         self.waypoints = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
-                          for x, y, z in zip(x_spline, y_spline, z_spline)]
+                        for x, y, z in zip(x_spline, y_spline, z_spline)]
 
         self.waypoints_false = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
                                 for x, y, z in zip(x_spline_false, y_spline_false, z_spline_false)]
 
         display_waypoints = list(zip(y_spline_display, z_spline_display))
+        
         return control_points, self.waypoints, display_waypoints, self.waypoints_false
-    
+
+    def execute_trajectory(self, spline_waypoints):
+        """
+        Executes a trajectory and updates stiffness during the false trajectory.
+        """
+        for index, pose in enumerate(spline_waypoints):
+            # Check if the index falls within the false trajectory range
+            if 21 <= index <= 35:
+                rospy.loginfo("Switching to high stiffness for false trajectory.")
+                self.update_stiffness(self.high_stiffness)
+            else:
+                rospy.loginfo("Switching back to normal stiffness.")
+                self.update_stiffness(self.normal_stiffness)
+
+            self.add_waypoint(pose)
+
+        result = self.traj.send_trajectory()
+        if result is None:
+            rospy.logerr("Trajectory FAILED to send")
+        elif result.result:
+            rospy.loginfo("Trajectory successfully executed!")
+        else:
+            rospy.logerr(f"Trajectory execution failed with error {result.errorId}")
+
+    def update_stiffness(self, stiffness_values):
+        """
+        Publishes new stiffness values to update the control mode.
+        """
+        stiffness_msg = Float64MultiArray(data=stiffness_values)
+        rospy.loginfo("Publishing stiffness: %s", stiffness_values)  # Log stiffness being published
+        self.stiffness_pub.publish(stiffness_msg)
+
     def add_waypoint(self, pose, limb_name="right_hand"):
         """
         Adds a waypoint to the trajectory based on the given pose.
@@ -281,12 +316,19 @@ class IKMotionWaypoint:
         rospy.loginfo("Waypoint added at: {}".format(pose.position))
         return True
 
-
     def execute_trajectory(self, spline_waypoints):
         """
-        Executes a trajectory based on the given spline waypoints.
+        Executes a trajectory and updates stiffness during the false trajectory.
         """
-        for pose in spline_waypoints:
+        for index, pose in enumerate(spline_waypoints):
+            # Check if the index falls within the false trajectory range
+            if 21 <= index <= 30:
+                rospy.loginfo("Switching to high stiffness for false trajectory.")
+                self.update_stiffness(self.high_stiffness)
+            else:
+                rospy.loginfo("Switching back to normal stiffness.")
+                self.update_stiffness(self.normal_stiffness)
+
             self.add_waypoint(pose)
 
         result = self.traj.send_trajectory()
