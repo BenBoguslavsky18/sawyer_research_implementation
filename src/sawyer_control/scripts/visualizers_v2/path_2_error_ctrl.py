@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#  This script runs the sawyer-spline visualizer with no intentional path error
+#  Sawyer path 2 (Spline) visualizer with modified control point path error
 
 import rospy
 from geometry_msgs.msg import Pose, Point, Quaternion
@@ -153,7 +153,6 @@ class SawyerVisualizer:
                     pygame.draw.circle(self.window, (0, 0, 0), (point[0], point[1]), 5)
 
             with self.lock:
-                # pygame.draw.rect(self.window, self.rect_color, (int(self.x), int(self.y), self.rect_width, self.rect_height))
                 pygame.draw.circle(self.window, self.icon_color, (int(self.x), int(self.y)), self.icon_radius)#, self.rect_height))
             
             pygame.display.flip()
@@ -221,19 +220,17 @@ class IKMotionWaypoint:
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
-    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40): 
+    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40): #TODO Test different num_points parameters
         control_points = np.array([
             [start_pose.position.x, start_pose.position.y, start_pose.position.z],
-            [0.6, -0.1, 0.4],
-            [0.6, 0.1, 0.2],
-            [0.6, 0.3, 0.4],
+            [0.6, -0.1, 0.2],
+            [0.6, 0.1, 0.4],
+            [0.6, 0.3, 0.2],
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
-
         false_control_points = control_points.copy()
         false_control_points[3, 2] = 0.3
-
 
         t = np.linspace(0, 1, len(control_points))
         t_spline = np.linspace(0, 1, num_points)

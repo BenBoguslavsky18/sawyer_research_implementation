@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 
-#  This script runs the sawyer-spline visualizer with no intentional path error
-
 import rospy
 from geometry_msgs.msg import Pose, Point, Quaternion
 from intera_motion_interface import MotionTrajectory, MotionWaypoint, MotionWaypointOptions
 from intera_interface import Limb
 from intera_core_msgs.msg import EndpointState
+import std_msgs.msg
 
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
 from kdl_parser_py.urdf import treeFromUrdfModel
-from scipy.interpolate import CubicSpline
 
 import numpy as np
-
 import pygame
 import threading
 
@@ -31,7 +28,6 @@ end_pose = Pose(position=Point(x=0.6, y=0.5, z=0.3),
                 orientation=Quaternion(x=0.0, y=1.0, z=0.0, w=0.0))
 
 
-'''Visualizer Display'''
 class SawyerVisualizer:
     def __init__(self):
         rospy.init_node('positionSubscriber', anonymous=True)
@@ -48,6 +44,7 @@ class SawyerVisualizer:
         y_coords = [p[1] for p in self.display_waypoints]
         x_coords = self.convert_to_pixels_x(x_coords, -0.3, 0.5, 200, 1720)
         y_coords = self.convert_to_pixels_y(y_coords, 0.1, 0.5, 200, 1000)
+
         self.smooth_points = list(zip(x_coords, y_coords))
         self.trail_points = [] #list of points to store the path moves by the robot when going along the trajectory
 
@@ -153,7 +150,6 @@ class SawyerVisualizer:
                     pygame.draw.circle(self.window, (0, 0, 0), (point[0], point[1]), 5)
 
             with self.lock:
-                # pygame.draw.rect(self.window, self.rect_color, (int(self.x), int(self.y), self.rect_width, self.rect_height))
                 pygame.draw.circle(self.window, self.icon_color, (int(self.x), int(self.y)), self.icon_radius)#, self.rect_height))
             
             pygame.display.flip()
@@ -163,7 +159,6 @@ class SawyerVisualizer:
         rospy.signal_shutdown("PyGame window closed")
 
 
-'''ROBOT MOTION'''
 class IKMotionWaypoint:
     def __init__(self, limb="right"):
         self._limb = Limb(limb)
@@ -221,35 +216,38 @@ class IKMotionWaypoint:
         else:
             rospy.logerr(f"Failed to move to pose with error {result.errorId}")
 
-    def generate_spline_waypoints(self, start_pose, end_pose, num_points=40):
+    def generate_spline_waypoints(self, start_pose, end_pose, num_points=10):
         control_points = np.array([
             [start_pose.position.x, start_pose.position.y, start_pose.position.z],
-            [0.6, -0.1, 0.2],
-            [0.6, 0.1, 0.4],
-            [0.6, 0.3, 0.2],
+            [0.6, -0.1, 0.5],
+            [0.6, 0.1, 0.15],
+            [0.6, 0.3, 0.35],
             [end_pose.position.x, end_pose.position.y, end_pose.position.z]
         ])
 
-        t = np.linspace(0, 1, len(control_points))
-        t_spline = np.linspace(0, 1, num_points)
-        x_spline = CubicSpline(t, control_points[:, 0])(t_spline)
-        y_spline = CubicSpline(t, control_points[:, 1])(t_spline)
-        z_spline = CubicSpline(t, control_points[:, 2])(t_spline)
-
-        t_spline_display = np.linspace(0, 1, 1000)
-        y_spline_display = CubicSpline(t, control_points[:, 1])(t_spline_display)
-        z_spline_display = CubicSpline(t, control_points[:, 2])(t_spline_display)
+        # true path motion
+        x_straight_path = control_points[:, 0]
+        y_straight_path = control_points[:, 1]
+        z_straight_path = control_points[:, 2]
 
         self.waypoints = [Pose(position=Point(x=x, y=y, z=z), orientation=start_pose.orientation)
-                          for x, y, z in zip(x_spline, y_spline, z_spline)]
+                          for x, y, z in zip(x_straight_path, y_straight_path, z_straight_path)]
 
-        display_waypoints = list(zip(y_spline_display, z_spline_display))
+        # interpolation for true path display
+        y_straight_path_display = []
+        for i in range(len(y_straight_path) - 1):
+            interpolated_values = np.linspace(y_straight_path[i], y_straight_path[i+1], 200, False)
+            y_straight_path_display.extend(interpolated_values)
+        z_straight_path_display = []
+        for i in range(len(z_straight_path) - 1):
+            interpolated_values = np.linspace(z_straight_path[i], z_straight_path[i+1], 200, False)
+            z_straight_path_display.extend(interpolated_values)
+
+        display_waypoints = list(zip(y_straight_path_display, z_straight_path_display))
+
         return control_points, self.waypoints, display_waypoints
-    
+
     def add_waypoint(self, pose, limb_name="right_hand"):
-        """
-        Adds a waypoint to the trajectory based on the given pose.
-        """
         joint_angles = self.calculate_ik(pose)
         if joint_angles is None:
             rospy.logerr("Skipping waypoint due to IK failure")
@@ -267,7 +265,6 @@ class IKMotionWaypoint:
         rospy.loginfo("Waypoint added at: {}".format(pose.position))
         return True
 
-
     def execute_trajectory(self, spline_waypoints):
         """
         Executes a trajectory based on the given spline waypoints.
@@ -282,6 +279,7 @@ class IKMotionWaypoint:
             rospy.loginfo("Trajectory successfully executed!")
         else:
             rospy.logerr(f"Trajectory execution failed with error {result.errorId}")
+
 
 if __name__ == '__main__':
     sawyerVisualizer = SawyerVisualizer()
