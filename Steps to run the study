@@ -1,0 +1,19 @@
+1. cd ben_ws 
+2. run ./intera.sh
+3. For the game follow the steps :
+
+1. run:    rosrun sawyer_control path_1.py
+2. Press space to intialize the robot at the starting position of the game 
+3. run the controller :rosrun sawyer_control test_controller.py
+4. Press the space again to run the game the horizontal line will start moving the objective of the game is it to keep circle on the line till the path finishes 
+5. You can now try again the steps with path_2 and path_3
+
+For the controller :
+
+You can run: rosrun sawyer_control test_controller.py 
+
+This will just run the controller and the robot will try to maintain it's current position.
+
+You can change the stiffness parameters by changing the numbers (Range from 10 - 1200 N/m)
+
+self.default_stiffness = [34.0, 34.0, 34.0, 27.0, 27.0, 27.0]

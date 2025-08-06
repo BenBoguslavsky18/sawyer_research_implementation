@@ -102,7 +102,7 @@ def main():
         help="Activate (1) or Deactivate (0) interaction controller")
     parser.add_argument(
         "-k", "--K_impedance", type=float,
-        nargs='+', default=[1300.0, 1300.0, 1300.0, 30.0, 30.0, 30.0],
+        nargs='+', default=[1000.0, 1000.0, 1000.0, 5.0, 5.0, 5.0],
         help="A list of desired stiffnesses, one for each of the 6 directions -- stiffness units are (N/m) for first 3 and (Nm/rad) for second 3 values")
     parser.add_argument(
         "-m", "--max_impedance", type=int,

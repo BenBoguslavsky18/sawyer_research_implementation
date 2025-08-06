@@ -9,6 +9,7 @@
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/airlab5/ben_ws/devel/.private/intera_examples:$CMAKE_PREFIX_PATH"
 export LD_LIBRARY_PATH="/home/airlab5/ben_ws/devel/.private/intera_examples/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/airlab5/ben_ws/devel/.private/intera_examples/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD='/home/airlab5/ben_ws/build/intera_examples'
 export PYTHONPATH="/home/airlab5/ben_ws/devel/.private/intera_examples/lib/python3/dist-packages:$PYTHONPATH"
 export ROSLISP_PACKAGE_DIRECTORIES="/home/airlab5/ben_ws/devel/.private/intera_examples/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"

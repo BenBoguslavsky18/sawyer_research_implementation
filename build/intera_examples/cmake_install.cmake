@@ -268,6 +268,10 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/intera_examples" TYPE PROGRAM FILES "/home/airlab5/ben_ws/build/intera_examples/catkin_generated/installspace/ura_test.py")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/intera_examples" TYPE DIRECTORY FILES "/home/airlab5/ben_ws/src/intera_sdk/intera_examples/scripts/" USE_SOURCE_PERMISSIONS)
 endif()
 

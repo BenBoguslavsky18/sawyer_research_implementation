@@ -21,6 +21,7 @@ Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/joint_position_keyboard.py, /home/airlab5/ben_ws/devel/lib/intera_examples/joint_position_keyboard.py)
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/joint_torque_springs.py, /home/airlab5/ben_ws/devel/lib/intera_examples/joint_torque_springs.py)
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/camera_display.py, /home/airlab5/ben_ws/devel/lib/intera_examples/camera_display.py)
+Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/ura_test.py, /home/airlab5/ben_ws/devel/lib/intera_examples/ura_test.py)
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/constrained_zeroG.py, /home/airlab5/ben_ws/devel/lib/intera_examples/constrained_zeroG.py)
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/navigator_io.py, /home/airlab5/ben_ws/devel/lib/intera_examples/navigator_io.py)
 Linked: (/home/airlab5/ben_ws/devel/.private/intera_examples/lib/intera_examples/go_to_cartesian_pose.py, /home/airlab5/ben_ws/devel/lib/intera_examples/go_to_cartesian_pose.py)
